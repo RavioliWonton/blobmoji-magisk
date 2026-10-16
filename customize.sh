@@ -143,14 +143,23 @@ if [ "$REPLACED" = 0 ]; then
 fi
 
 # Since Android 12 the system can update fonts at runtime (this is how Google
-# delivers new emoji). Those files live in /data/fonts/files and take
-# precedence over /system/fonts, so no module mount can override them.
+# delivers new emoji). Those files live in /data/fonts/files, take precedence
+# over /system/fonts and cannot be overridden by a module mount, so delete them.
+# post-fs-data.sh repeats this on every boot, as the updater can install them
+# again at any time.
 for file in /data/fonts/files/*/*[Ee]moji*.ttf; do
     [ -f "$file" ] || continue
-    ui_print "! NOTE: the system keeps an updated emoji font at"
-    ui_print "!       $file"
-    ui_print "!       it takes precedence over /system/fonts - delete it and"
-    ui_print "!       reboot if Blobmoji does not show up"
+    dir=$(dirname "$file")
+    ui_print "- Removing system updated emoji font ${file#/data/fonts/files/}"
+    rm -f "$file"
+    # every downloaded font has its own fs-verity signature next to it
+    if [ -z "$(find "$dir" -maxdepth 1 -name '*.ttf' 2>/dev/null | head -n 1)" ]; then
+        rm -f "$dir/font.fsv_sig"
+        rmdir "$dir" 2>/dev/null
+    fi
 done
+
+# make sure the boot script is executable, whatever the zip stored
+[ -f "$MODPATH/post-fs-data.sh" ] && chmod 0755 "$MODPATH/post-fs-data.sh"
 
 rm -f $MODPATH/LICENSE* 2>/dev/null

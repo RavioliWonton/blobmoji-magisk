@@ -43,13 +43,26 @@ Replacing only `/system/fonts/NotoColorEmoji.ttf` has no visible effect there.
 Since Android 15 the runtime configuration is `font_fallback.xml`, as `fonts.xml`
 is deprecated.
 
-### Known limitation
+### System updated fonts
 
 Since Android 12 the system can update fonts at runtime, which is how Google
 delivers new emoji. Those files are stored in `/data/fonts/files/<hash>/` and
-take precedence over `/system/fonts`, so no module can override them. If
-Blobmoji does not show up, delete the emoji font from `/data/fonts/files/` and
-reboot.
+take precedence over `/system/fonts`, so no module mount can override them. The
+installer therefore removes the updated emoji fonts, and `post-fs-data.sh`
+repeats that on every boot, because the updater can install them again at any
+time.
+
+An update that arrives while the device is running can still take effect until
+the next reboot. To block the updater completely, create an empty file:
+
+```sh
+touch /data/adb/modules/blobmoji/block_font_updates
+```
+
+`post-fs-data.sh` then remounts `/data/fonts/files` read-only on every boot: the
+fonts that are already installed stay readable, new updates fail. This also
+blocks updates of other system fonts (for example Google Sans), which is why it
+is opt-in.
 
 ## Credit & Support
 
